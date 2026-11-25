@@ -59,11 +59,11 @@ However, this part is inherently horizontally scalable.
 You can increase the number of Istiod instances to reduce the amount of time it takes for the configuration
 to reach all proxies.
 
-At large scale, [configuration scoping](/es/docs/ops/configuration/mesh/configuration-scoping) is highly recommended.
+At large scale, [configuration scoping](/docs/ops/configuration/mesh/configuration-scoping) is highly recommended.
 
-## data plane performance
+## Data plane performance
 
-data plane performance depends on many factors, for example:
+Data plane performance depends on many factors, for example:
 
 - Number of client connections
 - Target request rate
@@ -104,7 +104,7 @@ The actual tail latency depends on the traffic pattern.
 In sidecar mode, a request will pass through the client sidecar proxy and then the server sidecar proxy before reaching the server, and vice versa.
 In ambient mode, a request will pass through the client node ztunnel and then the server node ztunnel before reaching the server.
 With waypoints configured, a request will go through a waypoint proxy between the ztunnels.
-The following charts show the P90 and P99 latency of http/1.1 requests traveling through various data plane modes.
+The following charts show the P90 and P99 latency of http/1.1 requests traveling through various dataplane modes.
 To run the tests, we used a bare-metal cluster of 5 [M3 Large](https://deploy.equinix.com/product/servers/m3-large/) machines and [Flannel](https://github.com/flannel-io/flannel) as the primary CNI.
 We obtained these results using the [Istio benchmarks](https://github.com/istio/tools/tree/{{< source_branch_name >}}/perf/benchmark) for the `http/1.1` protocol with a 1 KB payload at 500, 750, 1000, 1250, and 1500 requests per second using 4 client connections, 2 proxy workers and mutual TLS enabled.
 

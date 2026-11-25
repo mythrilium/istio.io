@@ -36,34 +36,31 @@ To be part of a mesh, Kubernetes pods must satisfy the following requirements:
 - **Application UIDs**: Ensure your pods do **not** run applications as a user
   with the user ID (UID) value of `1337` because `1337` is reserved for the sidecar proxy.
 
-- **`NET_ADMIN` and `NET_RAW` capabilities**: If [pod security policies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/)
-    are [enforced](https://kubernetes.io/docs/concepts/policy/pod-security-policy/#enabling-pod-security-policies)
-    in your cluster and unless you use the [Istio CNI Plugin](/es/docs/setup/additional-setup/cni/), your pods must have the
-    `NET_ADMIN` and `NET_RAW` capabilities allowed. The initialization containers of the Envoy
-    proxies require these capabilities.
+- **`NET_ADMIN` and `NET_RAW` capabilities**: Unless you use the
+    [Istio CNI Plugin](/docs/setup/additional-setup/cni/), the `istio-init` container requires
+    `NET_ADMIN` and `NET_RAW` capabilities to configure iptables traffic redirection. The
+    namespace must use the `privileged`
+    [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+    enforcement level. Both the `baseline` and `restricted` levels block these capabilities and
+    will prevent the `istio-init` container from running.
 
-    To check if the `NET_ADMIN` and `NET_RAW` capabilities are allowed for your pods, you need to check if their
-    [service account](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/)
-    can use a pod security policy that allows the `NET_ADMIN` and `NET_RAW` capabilities.
-    If you haven't specified a service account in your pods' deployment, the pods run using
-    the `default` service account in their deployment's namespace.
-
-    To list the capabilities for a service account, replace `<your namespace>` and `<your service account>`
-    with your values in the following command:
+    To check the `pod-security.kubernetes.io/enforce` label on a namespace:
 
     {{< text bash >}}
-    $ for psp in $(kubectl get psp -o jsonpath="{range .items[*]}{@.metadata.name}{'\n'}{end}"); do if [ $(kubectl auth can-i use psp/$psp --as=system:serviceaccount:<your namespace>:<your service account>) = yes ]; then kubectl get psp/$psp --no-headers -o=custom-columns=NAME:.metadata.name,CAPS:.spec.allowedCapabilities; fi; done
+    $ kubectl get namespace <your namespace> --show-labels
+    NAME       STATUS   AGE   LABELS
+    myapp      Active   3d    pod-security.kubernetes.io/enforce=privileged,...
     {{< /text >}}
 
-    For example, to check for the `default` service account in the `default` namespace, run the following command:
+    To set the namespace to `privileged` enforcement:
 
     {{< text bash >}}
-    $ for psp in $(kubectl get psp -o jsonpath="{range .items[*]}{@.metadata.name}{'\n'}{end}"); do if [ $(kubectl auth can-i use psp/$psp --as=system:serviceaccount:default:default) = yes ]; then kubectl get psp/$psp --no-headers -o=custom-columns=NAME:.metadata.name,CAPS:.spec.allowedCapabilities; fi; done
+    $ kubectl label namespace <your namespace> pod-security.kubernetes.io/enforce=privileged --overwrite
     {{< /text >}}
 
-    If you see `NET_ADMIN` and `NET_RAW` or `*` in the list of capabilities of one of the allowed
-    policies for your service account, your pods have permission to run the Istio init containers.
-    Otherwise, you will need to [provide the permission](https://kubernetes.io/docs/concepts/policy/pod-security-policy/#authorizing-policies).
+    If your security policy does not allow `privileged` enforcement on the namespace, use the
+    [Istio CNI Plugin](/docs/setup/additional-setup/cni/) instead, which handles traffic
+    redirection without requiring elevated capabilities in the pod.
 
 - **Pod labels**: We recommend explicitly declaring pods with an application identifier and version by using a pod label.
   These labels add contextual information to the metrics and telemetry that Istio collects.
@@ -73,7 +70,7 @@ To be part of a mesh, Kubernetes pods must satisfy the following requirements:
     - Application version: `service.istio.io/canonical-revision`, `app.kubernetes.io/version`, or `version`.
 
 - **Named service ports**: Service ports may optionally be named to explicitly specify a protocol.
-  See [Protocol Selection](/es/docs/ops/configuration/traffic-management/protocol-selection/) for
+  See [Protocol Selection](/docs/ops/configuration/traffic-management/protocol-selection/) for
   more details. If a pod belongs to multiple [Kubernetes services](https://kubernetes.io/docs/concepts/services-networking/service/),
   the services cannot use the same port number for different protocols, for
   instance HTTP and TCP.
@@ -113,11 +110,11 @@ The following ports and protocols are used by the Istio control plane (istiod).
 ## Server First Protocols
 
 Some protocols are "Server First" protocols, which means the server will send the first bytes. This may have an impact on
-[`PERMISSIVE`](/es/docs/reference/config/security/peer_authentication/#PeerAuthentication-MutualTLS-Mode) mTLS and [Automatic protocol selection](/es/docs/ops/configuration/traffic-management/protocol-selection/#automatic-protocol-selection).
+[`PERMISSIVE`](/docs/reference/config/security/peer_authentication/#PeerAuthentication-MutualTLS-Mode) mTLS and [Automatic protocol selection](/docs/ops/configuration/traffic-management/protocol-selection/#automatic-protocol-selection).
 
 Both of these features work by inspecting the initial bytes of a connection to determine the protocol, which is incompatible with server first protocols.
 
-In order to support these cases, follow the [Explicit protocol selection](/es/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection) steps to declare the protocol of the application as `TCP`.
+In order to support these cases, follow the [Explicit protocol selection](/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection) steps to declare the protocol of the application as `TCP`.
 
 The following ports are known to commonly carry server first protocols, and are automatically assumed to be `TCP`:
 
@@ -132,7 +129,7 @@ Because TLS communication is not server first, TLS encrypted server first traffi
 
 1. Configure `mTLS` mode `STRICT` for the server. This will enforce TLS encryption for all requests.
 1. Configure `mTLS` mode `DISABLE` for the server. This will disable the TLS sniffing, allowing server first protocols to be used.
-1. Configure all clients to send `TLS` traffic, generally through a [`DestinationRule`](/es/docs/reference/config/networking/destination-rule/#ClientTLSSettings) or by relying on auto mTLS.
+1. Configure all clients to send `TLS` traffic, generally through a [`DestinationRule`](/docs/reference/config/networking/destination-rule/#ClientTLSSettings) or by relying on auto mTLS.
 1. Configure your application to send TLS traffic directly.
 
 ## Outbound traffic
@@ -147,7 +144,7 @@ rather than `1.2.3.4`.
 For Non HTTP-based traffic (including HTTPS), Istio does not have access to an `Host` header, so routing decisions are based on the Service IP address.
 
 One implication of this is that direct calls to pods (for example, `curl <POD_IP>`), rather than Services, will not be matched. While the traffic may
-be [passed through](/es/docs/tasks/traffic-management/egress/egress-control/#envoy-passthrough-to-external-services), it will not get the full Istio functionality
+be [passed through](/docs/tasks/traffic-management/egress/egress-control/#envoy-passthrough-to-external-services), it will not get the full Istio functionality
 including mTLS encryption, traffic routing, and telemetry.
 
-See the [Traffic Routing](/es/docs/ops/configuration/traffic-management/traffic-routing) page for more information.
+See the [Traffic Routing](/docs/ops/configuration/traffic-management/traffic-routing) page for more information.
