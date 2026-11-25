@@ -1,6 +1,6 @@
 ---
-title: Performance and Scalability
-description: Istio performance and scalability summary.
+title: Rendimiento y escalabilidad
+description: Resumen del rendimiento y la escalabilidad de Istio.
 weight: 30
 keywords:
   - performance
@@ -21,109 +21,109 @@ owner: istio/wg-environments-maintainers
 test: n/a
 ---
 
-Istio makes it easy to create a network of deployed services with rich routing,
-load balancing, service-to-service authentication, monitoring, and more - all
-without any changes to the application code. Istio strives to provide
-these benefits with minimal resource overhead and aims to support very
-large meshes with high request rates while adding minimal latency.
+Istio facilita la creación de una red de servicios desplegados con enrutamiento avanzado,
+balanceo de carga, autenticación de servicio a servicio, monitoreo y más, todo
+sin ningún cambio en el código de la aplicación. Istio se esfuerza por ofrecer
+estos beneficios con una sobrecarga mínima de recursos y aspira a soportar meshes muy
+grandes con altas tasas de solicitudes, añadiendo una latencia mínima.
 
-The Istio data plane components, the Envoy proxies, handle data flowing through
-the system. The Istio control plane component, Istiod, configures
-the data plane. The data plane and control plane have distinct performance concerns.
+Los componentes del data plane de Istio, los proxies Envoy, gestionan los datos que fluyen por
+el sistema. El componente del control plane de Istio, Istiod, configura
+el data plane. El data plane y el control plane tienen consideraciones de rendimiento distintas.
 
-## Performance summary for Istio 1.24
+## Resumen de rendimiento de Istio 1.24
 
-The [Istio load tests](https://github.com/istio/tools/tree/{{< source_branch_name >}}/perf/load) mesh consists
-of **1000** services and **2000** pods in an Istio mesh with 70,000 mesh-wide requests per second.
+La mesh de las [pruebas de carga de Istio](https://github.com/istio/tools/tree/{{< source_branch_name >}}/perf/load) consta
+de **1000** servicios y **2000** pods en una mesh de Istio con 70 000 solicitudes por segundo en toda la mesh.
 
-## Control plane performance
+## Rendimiento del control plane
 
-Istiod configures sidecar proxies based on user authored configuration files and the current
-state of the system. In a Kubernetes environment, Custom Resource Definitions (CRDs) and deployments
-constitute the configuration and state of the system. The Istio configuration objects like gateways and virtual
-services, provide the user-authored configuration.
-To produce the configuration for the proxies, Istiod processes the combined configuration and system state
-from the Kubernetes environment and the user-authored configuration.
+Istiod configura los proxies sidecar en función de los archivos de configuración creados por el usuario y del estado
+actual del sistema. En un entorno de Kubernetes, las Custom Resource Definitions (CRDs) y los deployments
+constituyen la configuración y el estado del sistema. Los objetos de configuración de Istio, como los gateways y los virtual
+services, proporcionan la configuración creada por el usuario.
+Para generar la configuración de los proxies, Istiod procesa la configuración y el estado del sistema combinados
+del entorno de Kubernetes y la configuración creada por el usuario.
 
-The control plane supports thousands of services, spread across thousands of pods with a
-similar number of user authored virtual services and other configuration objects.
-Istiod's CPU and memory requirements scale with the amount of configurations and possible system states.
-The CPU consumption scales with the following factors:
+El control plane soporta miles de servicios, distribuidos en miles de pods, con un
+número similar de virtual services creados por el usuario y otros objetos de configuración.
+Los requisitos de CPU y memoria de Istiod escalan con la cantidad de configuraciones y de posibles estados del sistema.
+El consumo de CPU escala con los siguientes factores:
 
-- The rate of deployment changes.
-- The rate of configuration changes.
-- The number of proxies connecting to Istiod.
+- La tasa de cambios en los despliegues.
+- La tasa de cambios de configuración.
+- El número de proxies que se conectan a Istiod.
 
-However, this part is inherently horizontally scalable.
+Sin embargo, esta parte es inherentemente escalable de forma horizontal.
 
-You can increase the number of Istiod instances to reduce the amount of time it takes for the configuration
-to reach all proxies.
+Puedes aumentar el número de instancias de Istiod para reducir el tiempo que tarda la configuración
+en llegar a todos los proxies.
 
-At large scale, [configuration scoping](/es/docs/ops/configuration/mesh/configuration-scoping) is highly recommended.
+A gran escala, se recomienda encarecidamente [limitar el ámbito de la configuración](/es/docs/ops/configuration/mesh/configuration-scoping).
 
-## data plane performance
+## Rendimiento del data plane
 
-data plane performance depends on many factors, for example:
+El rendimiento del data plane depende de muchos factores, por ejemplo:
 
-- Number of client connections
-- Target request rate
-- Request size and Response size
-- Number of proxy worker threads
-- Protocol
-- CPU cores
-- Various proxy features. In particular, telemetry filters (logging, tracing, and metrics) are known to have a moderate impact.
+- Número de conexiones de cliente
+- Tasa de solicitudes objetivo
+- Tamaño de la solicitud y tamaño de la respuesta
+- Número de hilos de trabajo (worker threads) del proxy
+- Protocolo
+- Núcleos de CPU
+- Diversas funcionalidades del proxy. En particular, se sabe que los filtros de telemetría (registro, trazado y métricas) tienen un impacto moderado.
 
-The latency, throughput, and the proxies' CPU and memory consumption are measured as a function of said factors.
+La latencia, el throughput y el consumo de CPU y memoria de los proxies se miden en función de dichos factores.
 
-### Sidecar and ztunnel resource usage
+### Uso de recursos del sidecar y de ztunnel
 
-Since the sidecar proxy performs additional work on the data path, it consumes CPU
-and memory. In Istio 1.24, with 1000 http requests per second containing 1 KB of payload each
-- a single sidecar proxy with 2 worker threads consumes about 0.20 vCPU and 60 MB of memory.
-- a single waypoint proxy with 2 worker threads consumes about 0.25 vCPU and 60 MB of memory
-- a single ztunnel proxy consumes about 0.06 vCPU and 12 MB of memory.
+Como el proxy sidecar realiza trabajo adicional en la ruta de datos, consume CPU
+y memoria. En Istio 1.24, con 1000 solicitudes http por segundo con 1 KB de carga útil cada una
+- un único proxy sidecar con 2 hilos de trabajo consume unos 0.20 vCPU y 60 MB de memoria.
+- un único waypoint proxy con 2 hilos de trabajo consume unos 0.25 vCPU y 60 MB de memoria
+- un único proxy ztunnel consume unos 0.06 vCPU y 12 MB de memoria.
 
-The memory consumption of the proxy depends on the total configuration state the proxy holds.
-A large number of listeners, clusters, and routes can increase memory usage.
+El consumo de memoria del proxy depende del estado de configuración total que mantiene el proxy.
+Un gran número de listeners, clusters y rutas puede aumentar el uso de memoria.
 
-### Latency
+### Latencia
 
-Since Istio adds a sidecar proxy or ztunnel proxy on the data path, latency is an important
-consideration.
-Every feature Istio adds also adds to the path length inside the proxy and potentially affects latency.
+Como Istio añade un proxy sidecar o un proxy ztunnel en la ruta de datos, la latencia es una consideración
+importante.
+Cada funcionalidad que añade Istio también aumenta la longitud de la ruta dentro del proxy y puede afectar a la latencia.
 
-The Envoy proxy collects raw telemetry data after a response is sent to the
-client.
-The time spent collecting raw telemetry for a request does not contribute to the total time taken to complete that request.
-However, since the worker is busy handling the request, the worker won't start handling the next request immediately.
-This process adds to the queue wait time of the next request and affects average and tail latencies.
-The actual tail latency depends on the traffic pattern.
+El proxy Envoy recopila datos de telemetría sin procesar después de enviar una respuesta al
+cliente.
+El tiempo dedicado a recopilar la telemetría sin procesar de una solicitud no contribuye al tiempo total necesario para completar esa solicitud.
+Sin embargo, como el hilo de trabajo está ocupado gestionando la solicitud, no empezará a gestionar la siguiente solicitud inmediatamente.
+Este proceso aumenta el tiempo de espera en cola de la siguiente solicitud y afecta a las latencias media y de cola (tail).
+La latencia de cola real depende del patrón de tráfico.
 
-### Latency for Istio 1.24
+### Latencia de Istio 1.24
 
-In sidecar mode, a request will pass through the client sidecar proxy and then the server sidecar proxy before reaching the server, and vice versa.
-In ambient mode, a request will pass through the client node ztunnel and then the server node ztunnel before reaching the server.
-With waypoints configured, a request will go through a waypoint proxy between the ztunnels.
-The following charts show the P90 and P99 latency of http/1.1 requests traveling through various data plane modes.
-To run the tests, we used a bare-metal cluster of 5 [M3 Large](https://deploy.equinix.com/product/servers/m3-large/) machines and [Flannel](https://github.com/flannel-io/flannel) as the primary CNI.
-We obtained these results using the [Istio benchmarks](https://github.com/istio/tools/tree/{{< source_branch_name >}}/perf/benchmark) for the `http/1.1` protocol with a 1 KB payload at 500, 750, 1000, 1250, and 1500 requests per second using 4 client connections, 2 proxy workers and mutual TLS enabled.
+En modo sidecar, una solicitud pasa por el proxy sidecar del cliente y luego por el proxy sidecar del servidor antes de llegar al servidor, y viceversa.
+En modo ambient, una solicitud pasa por el ztunnel del nodo cliente y luego por el ztunnel del nodo servidor antes de llegar al servidor.
+Con waypoints configurados, una solicitud pasa por un waypoint proxy entre los ztunnels.
+Los siguientes gráficos muestran la latencia P90 y P99 de las solicitudes http/1.1 que atraviesan distintos modos de data plane.
+Para ejecutar las pruebas, usamos un clúster bare-metal de 5 máquinas [M3 Large](https://deploy.equinix.com/product/servers/m3-large/) y [Flannel](https://github.com/flannel-io/flannel) como CNI principal.
+Obtuvimos estos resultados usando los [benchmarks de Istio](https://github.com/istio/tools/tree/{{< source_branch_name >}}/perf/benchmark) para el protocolo `http/1.1` con una carga útil de 1 KB a 500, 750, 1000, 1250 y 1500 solicitudes por segundo, usando 4 conexiones de cliente, 2 hilos de trabajo del proxy y TLS mutuo habilitado.
 
-Note: This testing was performed on the [CNCF Community Infrastructure Lab](https://github.com/cncf/cluster).
-Different hardware will give different values.
+Nota: Estas pruebas se realizaron en el [CNCF Community Infrastructure Lab](https://github.com/cncf/cluster).
+Un hardware diferente dará valores diferentes.
 
-{{< image link="./istio-1.24.0-fortio-90.png" caption="P90 latency vs client connections" width="90%" >}}
+{{< image link="./istio-1.24.0-fortio-90.png" caption="Latencia P90 frente a conexiones de cliente" width="90%" >}}
 
-{{< image link="./istio-1.24.0-fortio-99.png" caption="P99 latency vs client connections" width="90%" >}}
+{{< image link="./istio-1.24.0-fortio-99.png" caption="Latencia P99 frente a conexiones de cliente" width="90%" >}}
 
-- `no mesh`: Client pod directly calls the server pod, no pods in Istio service mesh.
-- `ambient: L4`: Default ambient mode with the {{< gloss >}}secure L4 overlay{{< /gloss >}}
-- `ambient: L4+L7` Default ambient mode with the secure L4 overlay and waypoints enabled for the namespace.
-- `sidecar` Client and server sidecars.
+- `no mesh`: El pod cliente llama directamente al pod servidor, sin pods en la service mesh de Istio.
+- `ambient: L4`: Modo ambient por defecto con el {{< gloss >}}secure L4 overlay{{< /gloss >}}
+- `ambient: L4+L7` Modo ambient por defecto con el secure L4 overlay y waypoints habilitados para el namespace.
+- `sidecar` Sidecars del cliente y del servidor.
 
-### Benchmarking tools
+### Herramientas de benchmarking
 
-Istio uses the following tools for benchmarking
+Istio usa las siguientes herramientas para las pruebas de rendimiento (benchmarking)
 
-- [`fortio.org`](https://fortio.org/) - a constant throughput load testing tool.
-- [`nighthawk`](https://github.com/envoyproxy/nighthawk) - a load testing tool based on Envoy.
-- [`isotope`](https://github.com/istio/tools/tree/{{< source_branch_name >}}/isotope) - a synthetic application with configurable topology.
+- [`fortio.org`](https://fortio.org/) - una herramienta de pruebas de carga con throughput constante.
+- [`nighthawk`](https://github.com/envoyproxy/nighthawk) - una herramienta de pruebas de carga basada en Envoy.
+- [`isotope`](https://github.com/istio/tools/tree/{{< source_branch_name >}}/isotope) - una aplicación sintética con topología configurable.

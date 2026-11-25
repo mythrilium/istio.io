@@ -140,7 +140,7 @@ Los usuarios a menudo despliegan un mesh para habilitar una postura de seguridad
   </tbody>
 </table>
 
-## capa 4 vs capa 7 features
+## capa 4 vs capa 7 features {#layer-4-vs-layer-7-features}
 
 El sobrecosto para procesar protocolos en capa 7 es significativamente mayor que el procesamiento de paquetes en capa 4. Para un servicio dado, si tus requisitos pueden ser satisfechos en L4, la mesh de servicio puede ser entregada a un costo sustancialmente menor.
 

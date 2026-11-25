@@ -35,7 +35,7 @@ puede encontrar más información sobre la implementación de la gestión de tr�
 [descripción general de la arquitectura](/es/docs/ops/deployment/architecture/). El resto de
 esta guía presenta las features de gestión de tráfico de Istio.
 
-## Introducción a la gestión de tráfico de Istio
+## Introducción a la gestión de tráfico de Istio {#introducing-istio-traffic-management}
 
 Para dirigir el tráfico dentro de su malla, Istio necesita saber dónde están todos sus
 endpoints y a qué services pertenecen. Para poblar su propio

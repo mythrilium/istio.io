@@ -1,6 +1,6 @@
 ---
-title: Platform Requirements
-description: Platform requirements for Istio.
+title: Requisitos de la plataforma
+description: Requisitos de la plataforma para Istio.
 weight: 1
 skip_seealso: true
 keywords: [platform-setup,prerequisites]
@@ -9,47 +9,75 @@ test: no
 aliases: docs/setup/platform-setup/prerequisites
 ---
 
-## Kernel Module Requirements on Cluster Nodes
+## Requisitos de módulos del kernel en los nodos del clúster
 
-Regardless of the Istio {{< gloss >}}data plane{{< /gloss >}} mode, in Kubernetes contexts Istio generally requires Kubernetes nodes running Linux kernels with `iptables` support in order to function. The majority of Linux kernels released in the past decade include built-in support for all the `iptables` features Istio uses by default - either as kernel modules that will be auto-loaded when required, or built-in.
+Independientemente del modo de {{< gloss >}}data plane{{< /gloss >}} de Istio, en contextos de Kubernetes Istio generalmente requiere nodos de Kubernetes que ejecuten kernels de Linux con soporte para la interceptación y el enrutamiento de tráfico. Istio soporta dos backends para la gestión de tráfico: `iptables` (por defecto) y `nftables`.
 
-For reference, the following lists all the `iptables`-related kernel modules required for Istio to function correctly:
+La mayoría de los kernels de Linux publicados en la última década incluyen soporte integrado para las funcionalidades que usa Istio, ya sea como módulos del kernel que se cargan automáticamente cuando se necesitan o integrados en el propio kernel. Los módulos del kernel específicos que se requieren dependen del backend que elijas usar.
 
-| Module | Remark |
+### Backend de iptables
+
+Al usar el backend `iptables` (el backend por defecto), se requieren los siguientes módulos del kernel para que Istio funcione correctamente:
+
+#### Módulos principales de iptables
+
+| Módulo | Observación |
 | --- | --- |
 | `br_netfilter` |  |
-| `ip6table_mangle` | Only needed for IPv6/dual-stack clusters |
-| `ip6table_nat` | Only needed for IPv6/dual-stack clusters |
-| `ip6table_raw` | Only needed for IPv6/dual-stack clusters |
+| `ip6table_mangle` | Solo necesario para clústeres IPv6/dual-stack |
+| `ip6table_nat` | Solo necesario para clústeres IPv6/dual-stack |
+| `ip6table_raw` | Solo necesario para clústeres IPv6/dual-stack |
 | `iptable_mangle` |  |
 | `iptable_nat` |  |
-| `iptable_raw` | Only needed for `DNS` interception in sidecar mode |
+| `iptable_raw` | Solo necesario para la interceptación de `DNS` en modo sidecar |
 | `xt_REDIRECT` |  |
-| `xt_connmark` | Needed for ambient data plane mode, and sidecar data plane mode with `TPROXY` interception (default) |
+| `xt_connmark` | Necesario para el modo de data plane ambient y para el modo de data plane sidecar con interceptación `TPROXY` (por defecto) |
 | `xt_conntrack` |  |
-| `xt_mark` | Needed for ambient data plane mode, and sidecar data plane mode with `TPROXY` interception (default) |
+| `xt_CT` | Necesario para la interceptación de `DNS` con el backend `iptables` |
+| `xt_mark` | Necesario para el modo de data plane ambient y para el modo de data plane sidecar con interceptación `TPROXY` (por defecto) |
 | `xt_owner` |  |
 | `xt_tcpudp` |  |
-| `xt_multiport`|  |
-| `ip_set`| Needed for ambient data plane mode |
+| `xt_multiport` |  |
+| `ip_set` | Necesario para el modo de data plane ambient |
 
-The following additional modules are used by the above listed modules and should be also loaded on the cluster node:
+Los módulos listados arriba usan los siguientes módulos adicionales, que también deben cargarse en el nodo del clúster:
 
-| Module | Remark |
+| Módulo | Observación |
 | --- | --- |
 | `bridge` |  |
-| `ip6_tables` | Only needed for IPv6/dual-stack clusters |
+| `ip6_tables` | Solo necesario para clústeres IPv6/dual-stack |
 | `ip_tables` |  |
 | `nf_conntrack` |  |
 | `nf_conntrack_ipv4` |  |
-| `nf_conntrack_ipv6` | Only needed for IPv6/dual-stack clusters |
+| `nf_conntrack_ipv6` | Solo necesario para clústeres IPv6/dual-stack |
 | `nf_nat` |  |
 | `nf_nat_ipv4` |  |
-| `nf_nat_ipv6` | Only needed for IPv6/dual-stack clusters |
+| `nf_nat_ipv6` | Solo necesario para clústeres IPv6/dual-stack |
 | `nf_nat_redirect` |  |
 | `x_tables` |  |
-| `ip_set_hash_ip`| Needed for ambient data plane mode |
+| `ip_set_hash_ip` | Necesario para el modo de data plane ambient |
 
-While uncommon, the use of custom or nonstandard Linux kernels or Linux distributions may result in scenarios where the specific modules listed above are not available on the host, or could not be automatically loaded by `iptables`. For example, this [`selinux issue`](https://www.suse.com/support/kb/doc/?id=000020241) describes a scenario in some RHEL releases where `selinux` configuration may prevent the automatic loading of some of the above mentioned kernel modules.
+### Backend de nftables
 
-For more details on the specific Istio components that perform `iptables`-based configuration, see the relevant data plane mode documentation.
+El framework `nftables` es un reemplazo moderno de `iptables` que ofrece mejor rendimiento y flexibilidad.
+Istio usa la herramienta CLI `nft` para configurar las reglas de `nftables`. El binario `nft` debe ser de la versión 1.0.1 o posterior, y
+requiere la versión 5.13 o superior del kernel de Linux. Para que la CLI `nft` funcione correctamente, los siguientes módulos del kernel deben
+estar disponibles en el sistema host.
+
+| Módulo           | Observación                              |
+|------------------|------------------------------------------|
+| `nf_tables`      | Módulo principal de nftables             |
+| `nf_conntrack`   | Necesario para el seguimiento de conexiones |
+| `nft_ct`         |                                          |
+| `nf_defrag_ipv4` |                                          |
+| `nf_defrag_ipv6` | Solo necesario para clústeres IPv6/dual-stack |
+| `nft_nat`        |                                          |
+| `nft_socket`     |                                          |
+| `nft_tproxy`     |                                          |
+| `nft_redir`      |                                          |
+
+### Problemas con los módulos del kernel
+
+Aunque es poco común, el uso de kernels de Linux o distribuciones de Linux personalizados o no estándar puede dar lugar a escenarios en los que los módulos específicos listados arriba no estén disponibles en el host o no se puedan cargar automáticamente. Por ejemplo, el artículo [`selinux issue`](https://www.suse.com/support/kb/doc/?id=000020241) describe un escenario en algunas versiones de RHEL en el que la configuración de `selinux` puede impedir la carga automática de algunos de los módulos del kernel mencionados arriba.
+
+Para más detalles sobre los componentes específicos de Istio que realizan la interceptación de tráfico y la configuración del enrutamiento, consulta la documentación del modo de data plane correspondiente.

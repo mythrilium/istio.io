@@ -219,7 +219,7 @@ Una vez que la configuración de los clientes esté completa, el operador puede
 configurar el servidor en modo solo mTLS. Para obtener más información, visite el
 [tutorial de migración de mTLS](/es/docs/tasks/security/authentication/mtls-migration).
 
-#### Nombres seguros
+#### Nombres seguros {#secure-naming}
 
 Las identidades del servidor se codifican en certificados, pero los nombres de service se recuperan
 a través del service de descubrimiento o DNS. La información de nombres seguros mapea las
