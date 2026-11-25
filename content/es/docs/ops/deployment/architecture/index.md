@@ -1,6 +1,6 @@
 ---
-title: Architecture
-description: Describes Istio's high-level architecture and design goals.
+title: Arquitectura
+description: Describe la arquitectura general de Istio y sus objetivos de diseño.
 weight: 10
 aliases:
   - /docs/concepts/architecture
@@ -9,96 +9,96 @@ owner: istio/wg-environments-maintainers
 test: n/a
 ---
 
-An Istio service mesh is logically split into a **data plane** and a **control
+Una service mesh de Istio se divide lógicamente en un **data plane** y un **control
 plane**.
 
-* The **data plane** is composed of a set of intelligent proxies
-  ([Envoy](https://www.envoyproxy.io/)) deployed as sidecars. These proxies
-  mediate and control all network communication between microservices. They
-  also collect and report telemetry on all mesh traffic.
+* El **data plane** está compuesto por un conjunto de proxies inteligentes
+  ([Envoy](https://www.envoyproxy.io/)) desplegados como sidecars. Estos proxies
+  median y controlan toda la comunicación de red entre los microservicios. También
+  recopilan y reportan telemetría de todo el tráfico de la mesh.
 
-* The **control plane** manages and configures the proxies to route traffic.
+* El **control plane** gestiona y configura los proxies para enrutar el tráfico.
 
-The following diagram shows the different components that make up each plane:
+El siguiente diagrama muestra los distintos componentes que forman el data plane y el control plane:
 
 {{< image
     link="./arch.svg"
-    alt="The overall architecture of an Istio-based application."
-    caption="Istio architecture in sidecar mode"
+    alt="La arquitectura general de una aplicación basada en Istio."
+    caption="Arquitectura de Istio en modo sidecar"
     >}}
 
-## Components
+## Componentes
 
-The following sections provide a brief overview of each of Istio's core components.
+Las siguientes secciones ofrecen una breve descripción general de cada uno de los componentes principales de Istio.
 
 ### Envoy
 
-Istio uses an extended version of the
-[Envoy](https://www.envoyproxy.io/) proxy. Envoy is a high-performance
-proxy developed in C++ to mediate all inbound and outbound traffic for all
-services in the service mesh.
-Envoy proxies are the only Istio components that interact with data plane
-traffic.
+Istio usa una versión extendida del proxy
+[Envoy](https://www.envoyproxy.io/). Envoy es un proxy de alto rendimiento
+desarrollado en C++ para mediar todo el tráfico entrante y saliente de todos los
+servicios de la service mesh.
+Los proxies Envoy son los únicos componentes de Istio que interactúan con el tráfico
+del data plane.
 
-Envoy proxies are deployed as sidecars to services, logically
-augmenting the services with Envoy’s many built-in features,
-for example:
+Los proxies Envoy se despliegan como sidecars de los servicios, lo que amplía
+lógicamente los servicios con las numerosas funcionalidades integradas de Envoy,
+por ejemplo:
 
-* Dynamic service discovery
-* Load balancing
-* TLS termination
-* HTTP/2 and gRPC proxies
-* Circuit breakers
-* Health checks
-* Staged rollouts with %-based traffic split
-* Fault injection
-* Rich metrics
+* Descubrimiento dinámico de servicios
+* Balanceo de carga
+* Terminación TLS
+* Proxies HTTP/2 y gRPC
+* Interruptores de circuito (circuit breakers)
+* Comprobaciones de estado (health checks)
+* Despliegues por etapas con división de tráfico basada en porcentajes
+* Inyección de fallos
+* Métricas detalladas
 
-This sidecar deployment allows Istio to enforce policy decisions and extract
-rich telemetry which can be sent to monitoring systems to provide information
-about the behavior of the entire mesh.
+Este despliegue de sidecars permite a Istio aplicar decisiones de políticas y extraer
+telemetría detallada que puede enviarse a sistemas de monitoreo para proporcionar información
+sobre el comportamiento de toda la mesh.
 
-The sidecar proxy model also allows you to add Istio capabilities to an
-existing deployment without requiring you to rearchitect or rewrite code.
+El modelo de proxy sidecar también te permite añadir capacidades de Istio a un
+despliegue existente sin necesidad de rediseñar la arquitectura ni reescribir código.
 
-Some of the Istio features and tasks enabled by Envoy proxies include:
+Algunas de las funcionalidades y tareas de Istio que habilitan los proxies Envoy son:
 
-* Traffic control features: enforce fine-grained traffic control with rich
-  routing rules for HTTP, gRPC, WebSocket, and TCP traffic.
+* Funcionalidades de control de tráfico: aplica un control de tráfico detallado con reglas
+  de enrutamiento avanzadas para tráfico HTTP, gRPC, WebSocket y TCP.
 
-* Network resiliency features: setup retries, failovers, circuit breakers, and
-  fault injection.
+* Funcionalidades de resiliencia de red: configura reintentos, failovers, interruptores de circuito e
+  inyección de fallos.
 
-* Security and authentication features: enforce security policies and enforce
-  access control and rate limiting defined through the configuration API.
+* Funcionalidades de seguridad y autenticación: aplica políticas de seguridad, así como control
+  de acceso y limitación de tasa (rate limiting) definidos mediante la API de configuración.
 
-* Pluggable extensions model based on WebAssembly that allows for custom policy
-  enforcement and telemetry generation for mesh traffic.
+* Modelo de extensiones conectables basado en WebAssembly que permite aplicar políticas
+  personalizadas y generar telemetría para el tráfico de la mesh.
 
 ### Istiod
 
-Istiod provides service discovery, configuration and certificate management.
+Istiod proporciona descubrimiento de servicios, configuración y gestión de certificados.
 
-Istiod converts high level routing rules that control traffic behavior into
-Envoy-specific configurations, and propagates them to the sidecars at runtime.
-It abstracts platform-specific service discovery mechanisms and synthesizes
-them into a standard format that any sidecar conforming with the
-[Envoy API](https://www.envoyproxy.io/docs/envoy/latest/api/api) can consume.
+Istiod convierte las reglas de enrutamiento de alto nivel que controlan el comportamiento del tráfico en
+configuraciones específicas de Envoy y las propaga a los sidecars en tiempo de ejecución.
+Abstrae los mecanismos de descubrimiento de servicios específicos de cada plataforma y los sintetiza
+en un formato estándar que cualquier sidecar compatible con la
+[API de Envoy](https://www.envoyproxy.io/docs/envoy/latest/api/api) puede consumir.
 
-Istio can support discovery for multiple environments such as Kubernetes or VMs.
+Istio puede soportar el descubrimiento en múltiples entornos, como Kubernetes o VMs.
 
-You can use Istio's
-[Traffic Management API](/docs/concepts/traffic-management/#introducing-istio-traffic-management)
-to instruct Istiod to refine the Envoy configuration to exercise more granular control
-over the traffic in your service mesh.
+Puedes usar la
+[API de gestión de tráfico](/es/docs/concepts/traffic-management/#introducing-istio-traffic-management)
+de Istio para indicar a Istiod que refine la configuración de Envoy y así ejercer un control más granular
+sobre el tráfico de tu service mesh.
 
-Istiod [security](/docs/concepts/security/) enables strong service-to-service and
-end-user authentication with built-in identity and credential management. You
-can use Istio to upgrade unencrypted traffic in the service mesh. Using
-Istio, operators can enforce policies based on service identity rather than
-on relatively unstable layer 3 or layer 4 network identifiers.
-Additionally, you can use [Istio's authorization feature](/docs/concepts/security/#authorization)
-to control who can access your services.
+La [seguridad](/es/docs/concepts/security/) de Istiod permite una autenticación sólida de servicio a servicio y
+de usuario final con gestión integrada de identidades y credenciales. Puedes
+usar Istio para cifrar el tráfico sin cifrar de la service mesh. Con
+Istio, los operadores pueden aplicar políticas basadas en la identidad del servicio en lugar de
+en identificadores de red de capa 3 o capa 4, relativamente inestables.
+Además, puedes usar la [funcionalidad de autorización de Istio](/es/docs/concepts/security/#authorization)
+para controlar quién puede acceder a tus servicios.
 
-Istiod acts as a Certificate Authority (CA) and generates certificates to allow
-secure mTLS communication in the data plane.
+Istiod actúa como Autoridad de Certificación (CA) y genera certificados para permitir
+una comunicación mTLS segura en el data plane.

@@ -1,242 +1,242 @@
 ---
-title: Security Model
-description: Describes Istio's security model.
+title: Modelo de seguridad
+description: Describe el modelo de seguridad de Istio.
 weight: 10
 owner: istio/wg-security-maintainers
 test: n/a
 ---
 
-This document aims to describe the security posture of Istio's various components, and how possible attacks can impact the system.
+Este documento tiene como objetivo describir la postura de seguridad de los distintos componentes de Istio y cómo los posibles ataques pueden afectar al sistema.
 
-## Components
+## Componentes
 
-Istio comes with a variety of optional components that will be covered here.
-For a high level overview, see [Istio Architecture](/docs/ops/deployment/architecture/).
-Note that Istio deployments are highly flexible; below, we will primarily assume the worst case scenarios.
+Istio incluye una variedad de componentes opcionales que se tratarán aquí.
+Para una visión general de alto nivel, consulta [Arquitectura de Istio](/es/docs/ops/deployment/architecture/).
+Ten en cuenta que los despliegues de Istio son muy flexibles; a continuación, asumiremos principalmente los peores escenarios.
 
 ### Istiod
 
-Istiod serves as the core control plane component of Istio, often serving the role of the [XDS serving component](/docs/concepts/traffic-management/) as well
-as the mesh [mTLS Certificate Authority](/docs/concepts/security/).
+Istiod es el componente principal del control plane de Istio y a menudo desempeña el rol de [componente que sirve XDS](/es/docs/concepts/traffic-management/), así
+como el de [Autoridad de Certificación de mTLS](/es/docs/concepts/security/) de la mesh.
 
-Istiod is considered a highly privileged component, similar to that of the Kubernetes API server itself.
-* It has high Kubernetes RBAC privileges, typically including `Secret` read access and webhook write access.
-* When acting as the CA, it can provision arbitrary certificates.
-* When acting as the XDS control plane, it can program proxies to perform arbitrary behavior.
+Istiod se considera un componente altamente privilegiado, de forma similar al propio API server de Kubernetes.
+* Tiene privilegios elevados de RBAC de Kubernetes, que normalmente incluyen acceso de lectura a `Secret` y acceso de escritura a webhooks.
+* Cuando actúa como CA, puede aprovisionar certificados arbitrarios.
+* Cuando actúa como control plane de XDS, puede programar los proxies para que tengan un comportamiento arbitrario.
 
-As such, the security of the cluster is tightly coupled to the security of Istiod.
-Following [Kubernetes security best practices](https://kubernetes.io/docs/concepts/security/) around Istiod access is paramount.
+Por ello, la seguridad del clúster está estrechamente ligada a la seguridad de Istiod.
+Seguir las [buenas prácticas de seguridad de Kubernetes](https://kubernetes.io/docs/concepts/security/) en torno al acceso a Istiod es fundamental.
 
-### Istio CNI plugin
+### Plugin CNI de Istio {#istio-cni-plugin}
 
-Istio can optionally be deployed with the [Istio CNI Plugin `DaemonSet`](/docs/setup/additional-setup/cni/).
-This `DaemonSet` is responsible for setting up networking rules in Istio to ensure traffic is transparently redirected as needed.
-This is an alternative to the `istio-init` container discussed [below](#sidecar-proxies).
+Istio se puede desplegar opcionalmente con el [`DaemonSet` del plugin CNI de Istio](/es/docs/setup/additional-setup/cni/).
+Este `DaemonSet` es responsable de configurar las reglas de red de Istio para garantizar que el tráfico se redirija de forma transparente según sea necesario.
+Es una alternativa al contenedor `istio-init` que se describe [más adelante](#sidecar-proxies).
 
-Because the CNI `DaemonSet` modifies networking rules on the node, it requires an elevated `securityContext`.
-However, unlike [Istiod](#istiod), this is a **node-local** privilege.
-The implications of this are discussed [below](#node-compromise).
+Como el `DaemonSet` de CNI modifica las reglas de red del nodo, requiere un `securityContext` elevado.
+Sin embargo, a diferencia de [Istiod](#istiod), se trata de un privilegio **local al nodo**.
+Las implicaciones de esto se describen [más adelante](#node-compromise).
 
-Because this consolidates the elevated privileges required to setup networking into a single pod, rather than *every* pod,
-this option is generally recommended.
+Como esto concentra los privilegios elevados necesarios para configurar la red en un único pod, en lugar de en *cada* pod,
+generalmente se recomienda esta opción.
 
-### Sidecar Proxies
+### Proxies sidecar {#sidecar-proxies}
 
-Istio may [optionally](/docs/overview/dataplane-modes/) deploy a sidecar proxy next to an application.
+Istio puede desplegar [opcionalmente](/es/docs/overview/dataplane-modes/) un proxy sidecar junto a una aplicación.
 
-The sidecar proxy needs the network to be programmed to direct all traffic through the proxy.
-This can be done with the [Istio CNI plugin](#istio-cni-plugin) or by deploying an `initContainer` (`istio-init`) on the pod (this is done automatically if the CNI plugin is not deployed).
-The `istio-init` container requires `NET_ADMIN` and `NET_RAW` capabilities.
-However, these capabilities are only present during the initialization - the primary sidecar container is completely unprivileged.
+El proxy sidecar necesita que la red esté programada para dirigir todo el tráfico a través del proxy.
+Esto se puede hacer con el [plugin CNI de Istio](#istio-cni-plugin) o desplegando un `initContainer` (`istio-init`) en el pod (esto se hace automáticamente si el plugin CNI no está desplegado).
+El contenedor `istio-init` requiere las capacidades `NET_ADMIN` y `NET_RAW`.
+Sin embargo, estas capacidades solo están presentes durante la inicialización; el contenedor sidecar principal no tiene ningún privilegio.
 
-Additionally, the sidecar proxy does not require any associated Kubernetes RBAC privileges at all.
+Además, el proxy sidecar no requiere ningún privilegio de RBAC de Kubernetes asociado.
 
-Each sidecar proxy is authorized to request a certificate for the associated Pod Service Account.
+Cada proxy sidecar está autorizado a solicitar un certificado para la cuenta de servicio (Service Account) del Pod asociado.
 
-### Gateways and Waypoints
+### Gateways y waypoints {#gateways-and-waypoints}
 
-{{< gloss "gateway" >}}Gateways{{< /gloss >}} and {{< gloss "waypoint">}}Waypoints{{< /gloss >}} act as standalone proxy deployments.
-Unlike [sidecars](#sidecar-proxies), they do not require any networking modifications, and thus don't require any privilege.
+Los {{< gloss "gateway" >}}gateways{{< /gloss >}} y los {{< gloss "waypoint">}}waypoints{{< /gloss >}} actúan como despliegues de proxy independientes.
+A diferencia de los [sidecars](#sidecar-proxies), no requieren ninguna modificación de red y, por tanto, no requieren ningún privilegio.
 
-These components run with their own service accounts, distinct from application identities.
+Estos componentes se ejecutan con sus propias cuentas de servicio, distintas de las identidades de las aplicaciones.
 
 ### Ztunnel
 
-{{< gloss "ztunnel" >}}Ztunnel{{< /gloss >}} acts as a node-level proxy.
-This task requires the `NET_ADMIN`, `SYS_ADMIN`, and `NET_RAW` capabilities.
-Like the [Istio CNI Plugin](#istio-cni-plugin), these are **node-local** privileges only.
-The Ztunnel does not have any associated Kubernetes RBAC privileges.
+{{< gloss "ztunnel" >}}Ztunnel{{< /gloss >}} actúa como un proxy a nivel de nodo.
+Esta tarea requiere las capacidades `NET_ADMIN`, `SYS_ADMIN` y `NET_RAW`.
+Al igual que en el [plugin CNI de Istio](#istio-cni-plugin), se trata únicamente de privilegios **locales al nodo**.
+Ztunnel no tiene ningún privilegio de RBAC de Kubernetes asociado.
 
-Ztunnel is authorized to request certificates for any Service Accounts of pods running on the same node.
-Similar to [kubelet](https://kubernetes.io/docs/reference/access-authn-authz/node/), this explicitly does not allow requesting arbitrary
-certificates.
-This, again, ensures these privileges are **node-local** only.
+Ztunnel está autorizado a solicitar certificados para cualquier cuenta de servicio de los pods que se ejecutan en el mismo nodo.
+Al igual que con el [kubelet](https://kubernetes.io/docs/reference/access-authn-authz/node/), esto explícitamente no permite solicitar certificados
+arbitrarios.
+De nuevo, esto garantiza que estos privilegios sean únicamente **locales al nodo**.
 
-## Traffic Capture Properties
+## Propiedades de la captura de tráfico
 
-When a pod is enrolled in the mesh, all incoming TCP traffic will be redirected to the proxy.
-This includes both mTLS/{{< gloss >}}HBONE{{< /gloss >}} traffic and plaintext traffic.
-Any applicable [policies](/docs/tasks/security/authorization/) for the workload will be enforced before forwarding the traffic to the workload.
+Cuando un pod se incorpora a la mesh, todo el tráfico TCP entrante se redirige al proxy.
+Esto incluye tanto el tráfico mTLS/{{< gloss >}}HBONE{{< /gloss >}} como el tráfico en texto plano.
+Las [políticas](/es/docs/tasks/security/authorization/) que correspondan al workload se aplican antes de reenviar el tráfico al workload.
 
-However, Istio does not currently guarantee that _outgoing_ traffic is redirect to the proxy.
-See [traffic capture limitations](/docs/ops/best-practices/security/#understand-traffic-capture-limitations).
-As such, care must be taken to follow the [securing egress traffic](/docs/ops/best-practices/security/#securing-egress-traffic) steps if outbound policies are required.
+Sin embargo, Istio actualmente no garantiza que el tráfico _saliente_ se redirija al proxy.
+Consulta las [limitaciones de la captura de tráfico](/es/docs/ops/best-practices/security/#understand-traffic-capture-limitations).
+Por ello, si se requieren políticas para el tráfico saliente, hay que seguir con cuidado los pasos para [proteger el tráfico de salida](/es/docs/ops/best-practices/security/#securing-egress-traffic).
 
-## Mutual TLS Properties
+## Propiedades de TLS mutuo
 
-[Mutual TLS](/docs/concepts/security/#mutual-tls-authentication) provides the basis for much of Istio's security posture.
-Below explains various properties mutual TLS provides for the security posture of Istio.
+El [TLS mutuo](/es/docs/concepts/security/#mutual-tls-authentication) es la base de gran parte de la postura de seguridad de Istio.
+A continuación se explican varias propiedades que el TLS mutuo aporta a la postura de seguridad de Istio.
 
-### Certificate Authority
+### Autoridad de certificación
 
-Istio comes out of the box with its own Certificate Authority.
+Istio incluye de serie su propia Autoridad de Certificación.
 
-By default, the CA allows authenticating clients based on either of the options below:
-* A Kubernetes JWT token, with an audience of `istio-ca`, verified with a Kubernetes `TokenReview`. This is the default method in Kubernetes Pods.
-* An existing mutual TLS certificate.
-* Custom JWT tokens, verified using OIDC (requires configuration).
+Por defecto, la CA permite autenticar a los clientes mediante cualquiera de las siguientes opciones:
+* Un token JWT de Kubernetes, con la audiencia `istio-ca`, verificado con un `TokenReview` de Kubernetes. Este es el método por defecto en los Pods de Kubernetes.
+* Un certificado de TLS mutuo existente.
+* Tokens JWT personalizados, verificados mediante OIDC (requiere configuración).
 
-The CA will only issue certificates that are requested for identities that a client is authenticated for.
+La CA solo emitirá los certificados solicitados para identidades para las que el cliente esté autenticado.
 
-Istio can also integrate with a variety of third party CAs; please refer to any of their security documentation for more information on how they behave.
+Istio también se puede integrar con una variedad de CAs de terceros; consulta la documentación de seguridad de cada una para obtener más información sobre su comportamiento.
 
-### Client mTLS
-
-{{< tabset category-name="dataplane" >}}
-{{< tab name="Sidecar mode" category-value="sidecar" >}}
-In sidecar mode, the client sidecar will [automatically use TLS](/docs/ops/configuration/traffic-management/tls-configuration/#auto-mtls) when connecting to a service
-that is detected to support mTLS. This can also be [explicitly configured](/docs/ops/configuration/traffic-management/tls-configuration/#sidecars).
-Note that this automatic detection relies on Istio associating the traffic to a Service.
-[Unsupported traffic types](/docs/ops/configuration/traffic-management/traffic-routing/#unmatched-traffic) or [configuration scoping](/docs/ops/configuration/mesh/configuration-scoping/) can prevent this.
-
-When [connecting to a backend](/docs/concepts/security/#secure-naming), the set of allowed identities is computed, at the Service level, based on the union of all backend's identities.
-{{< /tab >}}
-
-{{< tab name="Ambient mode" category-value="ambient" >}}
-In ambient mode, Istio will automatically use mTLS when connecting to any backend that supports mTLS, and verify the identity of the destination matches the identity the workload is expected to be running as.
-
-These properties differ from sidecar mode in that they are properties of individual workloads, rather than of the service.
-This enables more fine-grained authentication checks, as well as supporting a wider variety of workloads.
-{{< /tab >}}
-{{< /tabset >}}
-
-### Server mTLS
-
-By default, Istio will accept mTLS and non-mTLS traffic (often called "permissive mode").
-Users can opt-in to strict enforcement by writing `PeerAuthentication` or `AuthorizationPolicy` rules requiring mTLS.
-
-When mTLS connections are established, the peer certificate is verified.
-Additionally, the peer identity is verified to be within the same trust domain.
-To verify only specific identities are allowed, an `AuthorizationPolicy` can be used.
-
-## Compromise types explored
-
-Based on the above overview, we will consider the impact on the cluster if various parts of the system are compromised.
-In the real world, there are a variety of different variables around any security attack:
-
-* How easy it is to execute
-* What prior privileges are required
-* How often it can exploited
-* What the impact is (total remote execution, denial of service, etc).
-
-In this document, we will primarily consider the worst case scenario: a compromised component means an attacker has complete remote code execution capabilities.
-
-### Workload compromise
-
-In this scenario, an application workload (pod) is compromised.
-
-A pod [*may* have access](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#opt-out-of-api-credential-automounting) to its service account token.
-If so, a workload compromise can move laterally from a single pod to compromising the entire service account.
+### mTLS del cliente
 
 {{< tabset category-name="dataplane" >}}
 {{< tab name="Sidecar mode" category-value="sidecar" >}}
-In the sidecar model, the proxy is co-located with the pod, and runs within the same trust boundary.
-A compromised application can tamper with the proxy through the admin API or other surfaces, including exfiltration of private key material, allowing another agent to impersonate the workload.
-It should be assumed that a compromised workload also includes a compromise of the sidecar proxy.
+En modo sidecar, el sidecar del cliente [usará TLS automáticamente](/es/docs/ops/configuration/traffic-management/tls-configuration/#auto-mtls) al conectarse a un servicio
+que se detecte que soporta mTLS. Esto también se puede [configurar explícitamente](/es/docs/ops/configuration/traffic-management/tls-configuration/#sidecars).
+Ten en cuenta que esta detección automática depende de que Istio asocie el tráfico a un Service.
+Los [tipos de tráfico no soportados](/es/docs/ops/configuration/traffic-management/traffic-routing/#unmatched-traffic) o la [limitación del ámbito de la configuración](/es/docs/ops/configuration/mesh/configuration-scoping/) pueden impedirlo.
 
-Given this, a compromised workload may:
-* Send arbitrary traffic, with or without mutual TLS.
-  These may bypass any proxy configuration, or even the proxy entirely.
-  Note that Istio does not offer egress-based authorization policies, so there is no egress authorization policy bypass occurring.
-* Accept traffic that was already destined to the application. It may bypass policies that were configured in the sidecar proxy.
-
-The key takeaway here is that while the compromised workload may behave maliciously, this does not give them the ability to bypass policies in _other_ workloads.
+Al [conectarse a un backend](/es/docs/concepts/security/#secure-naming), el conjunto de identidades permitidas se calcula, a nivel de Service, a partir de la unión de las identidades de todos los backends.
 {{< /tab >}}
 
 {{< tab name="Ambient mode" category-value="ambient" >}}
-In ambient mode, the node proxy is not co-located within the pod, and runs in another trust boundary as part of an independent pod.
+En modo ambient, Istio usará automáticamente mTLS al conectarse a cualquier backend que soporte mTLS, y verificará que la identidad del destino coincida con la identidad con la que se espera que se ejecute el workload.
 
-A compromised application may send arbitrary traffic.
-However, they do not have control over the node proxy, which will chose how to handle incoming and outbound traffic.
-
-Additionally, as the pod itself doesn't have access to a service account token to request a mutual TLS certificate, lateral movement possibilities are reduced.
+Estas propiedades difieren del modo sidecar en que son propiedades de workloads individuales, en lugar del servicio.
+Esto permite comprobaciones de autenticación más detalladas, además de soportar una mayor variedad de workloads.
 {{< /tab >}}
 {{< /tabset >}}
 
-Istio offers a variety of features that can limit the impact of such a compromise:
-* [Observability](/docs/tasks/observability/) features can be used to identify the attack.
-* [Policies](/docs/tasks/security/authorization/) can be used to restrict what type of traffic a workload can send or receive.
+### mTLS del servidor
 
-### Proxy compromise - Sidecars
+Por defecto, Istio acepta tráfico mTLS y no mTLS (a menudo llamado "modo permisivo").
+Los usuarios pueden optar por la aplicación estricta escribiendo reglas `PeerAuthentication` o `AuthorizationPolicy` que requieran mTLS.
 
-In this scenario, a sidecar proxy is compromised.
-Because the sidecar and application reside in the same trust domain, this is functionally equivalent to the [Workload compromise](#workload-compromise).
+Cuando se establecen conexiones mTLS, se verifica el certificado del par (peer).
+Además, se verifica que la identidad del par pertenezca al mismo trust domain.
+Para verificar que solo se permiten identidades específicas, se puede usar una `AuthorizationPolicy`.
 
-### Proxy compromise - Waypoint
+## Tipos de compromiso analizados
 
-In this scenario, a [waypoint proxy](#gateways-and-waypoints) is compromised.
-While waypoints do not have any privileges for a hacker to exploit, they do serve (potentially) many different services and workloads.
-A compromised waypoint will receive all traffic for these, which it can view, modify, or drop.
+A partir de la descripción general anterior, consideraremos el impacto en el clúster si se comprometen distintas partes del sistema.
+En el mundo real, hay una variedad de variables distintas en torno a cualquier ataque de seguridad:
 
-Istio offers the flexibility of [configuring the granularity of a waypoint deployment](/docs/ambient/usage/waypoint/#useawaypoint).
-Users may consider deploying more isolated waypoints if they require stronger isolation.
+* Lo fácil que es ejecutarlo
+* Qué privilegios previos se requieren
+* Con qué frecuencia se puede explotar
+* Cuál es el impacto (ejecución remota total, denegación de servicio, etc.).
 
-Because waypoints run with a distinct identity from the applications they serve, a compromised waypoint does not imply the user's applications can be impersonated.
+En este documento, consideraremos principalmente el peor escenario: un componente comprometido significa que un atacante tiene capacidades completas de ejecución remota de código.
 
-### Proxy compromise - Ztunnel
+### Compromiso del workload {#workload-compromise}
 
-In this scenario, a [ztunnel](#ztunnel) proxy is compromised.
+En este escenario, se compromete un workload de aplicación (pod).
 
-A compromised ztunnel gives the attacker control of the networking of the node.
+Un pod [*puede* tener acceso](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#opt-out-of-api-credential-automounting) a su token de cuenta de servicio.
+Si es así, el compromiso de un workload puede moverse lateralmente desde un único pod hasta comprometer toda la cuenta de servicio.
 
-Ztunnel has access to private key material for each application running on its node.
-A compromised ztunnel could have these exfiltrated and used elsewhere.
-However, lateral movement to identities beyond co-located workloads is not possible; each ztunnel is only authorized to access certificates for workloads running on its node, scoping the blast radius of a compromised ztunnel.
+{{< tabset category-name="dataplane" >}}
+{{< tab name="Sidecar mode" category-value="sidecar" >}}
+En el modelo sidecar, el proxy está ubicado junto con el pod y se ejecuta dentro del mismo límite de confianza.
+Una aplicación comprometida puede manipular el proxy a través de la API de administración u otras superficies, incluida la exfiltración del material de clave privada, lo que permite que otro agente suplante al workload.
+Se debe asumir que un workload comprometido también implica el compromiso del proxy sidecar.
 
-### Node compromise
+Dado esto, un workload comprometido puede:
+* Enviar tráfico arbitrario, con o sin TLS mutuo.
+  Este tráfico puede eludir cualquier configuración del proxy, o incluso el proxy por completo.
+  Ten en cuenta que Istio no ofrece políticas de autorización basadas en el tráfico de salida, por lo que no se elude ninguna política de autorización de salida.
+* Aceptar tráfico que ya estaba destinado a la aplicación. Puede eludir las políticas configuradas en el proxy sidecar.
 
-In this scenario, the Kubernetes Node is compromised.
-Both [Kubernetes](https://kubernetes.io/docs/reference/access-authn-authz/node/) and Istio are designed to limit the blast radius of a single node compromise, such that
-the compromise of a single node does not lead to a [cluster-wide compromise](#cluster-api-server-compromise).
+La conclusión clave es que, aunque el workload comprometido pueda comportarse de forma maliciosa, esto no le da la capacidad de eludir las políticas de _otros_ workloads.
+{{< /tab >}}
 
-However, the attack does have complete control over any workloads running on that node.
-For instance, it can compromise any co-located [waypoints](#proxy-compromise---waypoint), the local [ztunnel](#proxy-compromise---ztunnel), any [sidecars](#proxy-compromise---sidecars), any co-located [Istiod instances](#istiod-compromise), etc.
+{{< tab name="Ambient mode" category-value="ambient" >}}
+En modo ambient, el proxy de nodo no está ubicado dentro del pod y se ejecuta en otro límite de confianza como parte de un pod independiente.
 
-### Cluster (API Server) compromise
+Una aplicación comprometida puede enviar tráfico arbitrario.
+Sin embargo, no tiene control sobre el proxy de nodo, que decide cómo gestionar el tráfico entrante y saliente.
 
-A compromise of the Kubernetes API Server effectively means the entire cluster and mesh are compromised.
-Unlike most other attack vectors, there isn't much Istio can do to control the blast radius of such an attack.
-A compromised API Server gives a hacker complete control over the cluster, including actions such as running `kubectl exec` on arbitrary pods,
-removing any Istio `AuthorizationPolicies`, or even uninstalling Istio entirely.
+Además, como el propio pod no tiene acceso a un token de cuenta de servicio para solicitar un certificado de TLS mutuo, se reducen las posibilidades de movimiento lateral.
+{{< /tab >}}
+{{< /tabset >}}
 
-### Istiod compromise
+Istio ofrece una variedad de funcionalidades que pueden limitar el impacto de un compromiso de este tipo:
+* Las funcionalidades de [observabilidad](/es/docs/tasks/observability/) se pueden usar para identificar el ataque.
+* Las [políticas](/es/docs/tasks/security/authorization/) se pueden usar para restringir qué tipo de tráfico puede enviar o recibir un workload.
 
-A compromise of Istiod generally leads to the same result as an [API Server compromise](#cluster-api-server-compromise).
-Istiod is a highly privileged component that should be strongly protected.
-Following the [security best practices](/docs/ops/best-practices/security) is crucial to maintaining a secure cluster.
+### Compromiso del proxy - Sidecars {#proxy-compromise---sidecars}
 
-### K8s account compromise
+En este escenario, se compromete un proxy sidecar.
+Como el sidecar y la aplicación residen en el mismo trust domain, esto es funcionalmente equivalente al [compromiso del workload](#workload-compromise).
 
-In this scenario, a Kubernetes account with permissions to deploy Istio resources (``networking.istio.io/v1``) is compromised.
+### Compromiso del proxy - Waypoint {#proxy-compromise---waypoint}
 
-Such a compromised account gives the attacker control to deploy resources to manage traffic in the service mesh. While traffic management CRDs are _namespaced resources_, they affect the routing behavior of traffic from services outside the namespace and thus the security of the service mesh.
+En este escenario, se compromete un [waypoint proxy](#gateways-and-waypoints).
+Aunque los waypoints no tienen ningún privilegio que un atacante pueda explotar, sí sirven (potencialmente) a muchos servicios y workloads diferentes.
+Un waypoint comprometido recibirá todo el tráfico de estos, que puede ver, modificar o descartar.
 
-For instance, a `VirtualService` deployed with the [mesh gateway option](/docs/reference/config/networking/virtual-service/#VirtualService-gateways) enables Man-in-the-Middle attacks within the service mesh. The attacker-controlled service can:
+Istio ofrece la flexibilidad de [configurar la granularidad del despliegue de un waypoint](/es/docs/ambient/usage/waypoint/#useawaypoint).
+Los usuarios pueden considerar desplegar waypoints más aislados si requieren un aislamiento más fuerte.
 
-* act as the destination service.
-* redirect traffic to alternative destinations.
-* drop requests to disrupt the communication (denial-of-service).
+Como los waypoints se ejecutan con una identidad distinta a la de las aplicaciones a las que sirven, un waypoint comprometido no implica que se pueda suplantar a las aplicaciones del usuario.
 
-While the attacker can try to forward traffic to the destination service to read or modify communication between the two services, they may fail as they cannot bypass Istio's [Layer 4 and Layer 7 security features](/docs/overview/dataplane-modes/#layer-4-vs-layer-7-features) depending on the mesh configuration.
+### Compromiso del proxy - Ztunnel {#proxy-compromise---ztunnel}
 
-Further details and potential mitigations can be found in the [blog post about _Security Considerations on Istio's CRDs with Namespace-based Multi-Tenancy_](/blog/2026/security-considerations-on-namespace-based-multi-tenancy/).
+En este escenario, se compromete un proxy [ztunnel](#ztunnel).
+
+Un ztunnel comprometido le da al atacante el control de la red del nodo.
+
+Ztunnel tiene acceso al material de clave privada de cada aplicación que se ejecuta en su nodo.
+Si un ztunnel se ve comprometido, ese material podría exfiltrarse y usarse en otro lugar.
+Sin embargo, no es posible el movimiento lateral hacia identidades más allá de los workloads ubicados en el mismo nodo; cada ztunnel solo está autorizado a acceder a los certificados de los workloads que se ejecutan en su nodo, lo que acota el radio de impacto (blast radius) de un ztunnel comprometido.
+
+### Compromiso del nodo {#node-compromise}
+
+En este escenario, se compromete el nodo de Kubernetes.
+Tanto [Kubernetes](https://kubernetes.io/docs/reference/access-authn-authz/node/) como Istio están diseñados para limitar el radio de impacto del compromiso de un único nodo, de modo que
+el compromiso de un único nodo no conduzca a un [compromiso de todo el clúster](#cluster-api-server-compromise).
+
+Sin embargo, el atacante sí tiene control total sobre cualquier workload que se ejecute en ese nodo.
+Por ejemplo, puede comprometer cualquier [waypoint](#proxy-compromise---waypoint) ubicado en el mismo nodo, el [ztunnel](#proxy-compromise---ztunnel) local, cualquier [sidecar](#proxy-compromise---sidecars), cualquier [instancia de Istiod](#istiod-compromise) ubicada en el mismo nodo, etc.
+
+### Compromiso del clúster (API Server) {#cluster-api-server-compromise}
+
+Un compromiso del API Server de Kubernetes significa, en la práctica, que todo el clúster y toda la mesh están comprometidos.
+A diferencia de la mayoría de los demás vectores de ataque, Istio no puede hacer mucho para controlar el radio de impacto de un ataque así.
+Un API Server comprometido le da a un atacante control total sobre el clúster, incluidas acciones como ejecutar `kubectl exec` en pods arbitrarios,
+eliminar cualquiera de las `AuthorizationPolicies` de Istio o incluso desinstalar Istio por completo.
+
+### Compromiso de Istiod {#istiod-compromise}
+
+Un compromiso de Istiod generalmente conduce al mismo resultado que un [compromiso del API Server](#cluster-api-server-compromise).
+Istiod es un componente altamente privilegiado que debe protegerse a conciencia.
+Seguir las [buenas prácticas de seguridad](/es/docs/ops/best-practices/security) es crucial para mantener un clúster seguro.
+
+### Compromiso de una cuenta de Kubernetes {#k8s-account-compromise}
+
+En este escenario, se compromete una cuenta de Kubernetes con permisos para desplegar recursos de Istio (``networking.istio.io/v1``).
+
+Una cuenta comprometida de este tipo le da al atacante el control para desplegar recursos que gestionan el tráfico en la service mesh. Aunque los CRDs de gestión de tráfico son _recursos con namespace_ (namespaced resources), afectan al comportamiento de enrutamiento del tráfico de servicios externos al namespace y, por tanto, a la seguridad de la service mesh.
+
+Por ejemplo, un `VirtualService` desplegado con la [opción de gateway mesh](/es/docs/reference/config/networking/virtual-service/#VirtualService-gateways) permite ataques Man-in-the-Middle dentro de la service mesh. El servicio controlado por el atacante puede:
+
+* actuar como el servicio de destino.
+* redirigir el tráfico a destinos alternativos.
+* descartar solicitudes para interrumpir la comunicación (denegación de servicio).
+
+Aunque el atacante puede intentar reenviar el tráfico al servicio de destino para leer o modificar la comunicación entre los dos servicios, puede fallar, ya que no puede eludir las [funcionalidades de seguridad de capa 4 y capa 7](/es/docs/overview/dataplane-modes/#layer-4-vs-layer-7-features) de Istio, según la configuración de la mesh.
+
+Puedes encontrar más detalles y posibles mitigaciones en la [entrada del blog sobre _Security Considerations on Istio's CRDs with Namespace-based Multi-Tenancy_](/blog/2026/security-considerations-on-namespace-based-multi-tenancy/).

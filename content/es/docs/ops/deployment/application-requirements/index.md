@@ -1,6 +1,6 @@
 ---
-title: Application Requirements
-description: Requirements of applications deployed in an Istio-enabled cluster.
+title: Requisitos de las aplicaciones
+description: Requisitos de las aplicaciones desplegadas en un clúster con Istio habilitado.
 weight: 40
 keywords:
   - kubernetes
@@ -23,28 +23,28 @@ owner: istio/wg-environments-maintainers
 test: n/a
 ---
 
-Istio provides a great deal of functionality to applications with little or no impact on the application code itself.
-Many Kubernetes applications can be deployed in an Istio-enabled cluster without any changes at all.
-However, there are some implications of Istio's sidecar model that may need special consideration when deploying
-an Istio-enabled application.
-This document describes these application considerations and specific requirements of Istio enablement.
+Istio proporciona una gran cantidad de funcionalidades a las aplicaciones con poco o ningún impacto en el propio código de la aplicación.
+Muchas aplicaciones de Kubernetes se pueden desplegar en un clúster con Istio habilitado sin ningún cambio.
+Sin embargo, el modelo sidecar de Istio tiene algunas implicaciones que pueden requerir una consideración especial al desplegar
+una aplicación con Istio habilitado.
+Este documento describe estas consideraciones para las aplicaciones y los requisitos específicos para habilitar Istio.
 
-## Pod requirements
+## Requisitos de los pods {#pod-requirements}
 
-To be part of a mesh, Kubernetes pods must satisfy the following requirements:
+Para formar parte de una mesh, los pods de Kubernetes deben cumplir los siguientes requisitos:
 
-- **Application UIDs**: Ensure your pods do **not** run applications as a user
-  with the user ID (UID) value of `1337` because `1337` is reserved for the sidecar proxy.
+- **UIDs de la aplicación**: Asegúrate de que tus pods **no** ejecuten aplicaciones como un usuario
+  con el valor de ID de usuario (UID) `1337`, porque `1337` está reservado para el proxy sidecar.
 
-- **`NET_ADMIN` and `NET_RAW` capabilities**: Unless you use the
-    [Istio CNI Plugin](/docs/setup/additional-setup/cni/), the `istio-init` container requires
-    `NET_ADMIN` and `NET_RAW` capabilities to configure iptables traffic redirection. The
-    namespace must use the `privileged`
-    [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
-    enforcement level. Both the `baseline` and `restricted` levels block these capabilities and
-    will prevent the `istio-init` container from running.
+- **Capacidades `NET_ADMIN` y `NET_RAW`**: A menos que uses el
+    [plugin CNI de Istio](/es/docs/setup/additional-setup/cni/), el contenedor `istio-init` requiere
+    las capacidades `NET_ADMIN` y `NET_RAW` para configurar la redirección de tráfico con iptables. El
+    namespace debe usar el nivel `privileged` en el modo enforce de
+    [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/).
+    Tanto el nivel `baseline` como el `restricted` bloquean estas capacidades e
+    impedirán que el contenedor `istio-init` se ejecute.
 
-    To check the `pod-security.kubernetes.io/enforce` label on a namespace:
+    Para comprobar la etiqueta `pod-security.kubernetes.io/enforce` de un namespace:
 
     {{< text bash >}}
     $ kubectl get namespace <your namespace> --show-labels
@@ -52,99 +52,99 @@ To be part of a mesh, Kubernetes pods must satisfy the following requirements:
     myapp      Active   3d    pod-security.kubernetes.io/enforce=privileged,...
     {{< /text >}}
 
-    To set the namespace to `privileged` enforcement:
+    Para aplicar el nivel `privileged` en modo enforce al namespace:
 
     {{< text bash >}}
     $ kubectl label namespace <your namespace> pod-security.kubernetes.io/enforce=privileged --overwrite
     {{< /text >}}
 
-    If your security policy does not allow `privileged` enforcement on the namespace, use the
-    [Istio CNI Plugin](/docs/setup/additional-setup/cni/) instead, which handles traffic
-    redirection without requiring elevated capabilities in the pod.
+    Si tu política de seguridad no permite aplicar el nivel `privileged` al namespace, usa en su lugar el
+    [plugin CNI de Istio](/es/docs/setup/additional-setup/cni/), que gestiona la redirección
+    del tráfico sin requerir capacidades elevadas en el pod.
 
-- **Pod labels**: We recommend explicitly declaring pods with an application identifier and version by using a pod label.
-  These labels add contextual information to the metrics and telemetry that Istio collects.
-  Each of these values are read from multiple labels ordered from highest to lowest precedence:
+- **Etiquetas de pod**: Recomendamos declarar explícitamente en los pods un identificador y una versión de la aplicación mediante una etiqueta de pod.
+  Estas etiquetas añaden información de contexto a las métricas y la telemetría que recopila Istio.
+  Cada uno de estos valores se lee de varias etiquetas, ordenadas de mayor a menor precedencia:
 
-    - Application name: `service.istio.io/canonical-name`, `app.kubernetes.io/name`, or `app`.
-    - Application version: `service.istio.io/canonical-revision`, `app.kubernetes.io/version`, or `version`.
+    - Nombre de la aplicación: `service.istio.io/canonical-name`, `app.kubernetes.io/name` o `app`.
+    - Versión de la aplicación: `service.istio.io/canonical-revision`, `app.kubernetes.io/version` o `version`.
 
-- **Named service ports**: Service ports may optionally be named to explicitly specify a protocol.
-  See [Protocol Selection](/docs/ops/configuration/traffic-management/protocol-selection/) for
-  more details. If a pod belongs to multiple [Kubernetes services](https://kubernetes.io/docs/concepts/services-networking/service/),
-  the services cannot use the same port number for different protocols, for
-  instance HTTP and TCP.
+- **Puertos de servicio con nombre**: Opcionalmente, los puertos de servicio pueden tener un nombre para especificar explícitamente un protocolo.
+  Consulta [Selección de protocolo](/es/docs/ops/configuration/traffic-management/protocol-selection/) para
+  más detalles. Si un pod pertenece a varios [servicios de Kubernetes](https://kubernetes.io/docs/concepts/services-networking/service/),
+  esos servicios no pueden usar el mismo número de puerto para protocolos distintos, por
+  ejemplo, HTTP y TCP.
 
-## Ports used by Istio
+## Puertos usados por Istio {#ports-used-by-istio}
 
-The following ports and protocols are used by the Istio sidecar proxy (Envoy).
+El proxy sidecar de Istio (Envoy) usa los siguientes puertos y protocolos.
 
 {{< warning >}}
-To avoid port conflicts with sidecars, applications should not use any of the ports used by Envoy.
+Para evitar conflictos de puertos con los sidecars, las aplicaciones no deben usar ninguno de los puertos que usa Envoy.
 {{< /warning >}}
 
-| Port | Protocol | Description | Pod-internal only |
+| Puerto | Protocolo | Descripción | Solo interno del pod |
 |----|----|----|----|
-| 15000 | TCP | Envoy admin port (commands/diagnostics) | Yes |
-| 15001 | TCP | Envoy outbound | No |
-| 15002 | TCP | Listen port for failure detection | Yes |
-| 15004 | HTTP | Debug port | Yes |
-| 15006 | TCP | Envoy inbound | No |
-| 15008 | HTTP2 | {{< gloss >}}HBONE{{</ gloss >}} mTLS tunnel port | No |
-| 15020 | HTTP | Merged Prometheus telemetry from Istio agent, Envoy, and application | No |
-| 15021 | HTTP | Health checks | No |
-| 15053 | DNS  | DNS port, if capture is enabled | Yes |
-| 15090 | HTTP | Envoy Prometheus telemetry | No |
+| 15000 | TCP | Puerto de administración de Envoy (comandos/diagnóstico) | Sí |
+| 15001 | TCP | Tráfico saliente de Envoy | No |
+| 15002 | TCP | Puerto de escucha para la detección de fallos | Sí |
+| 15004 | HTTP | Puerto de depuración | Sí |
+| 15006 | TCP | Tráfico entrante de Envoy | No |
+| 15008 | HTTP2 | Puerto del túnel mTLS {{< gloss >}}HBONE{{</ gloss >}} | No |
+| 15020 | HTTP | Telemetría de Prometheus combinada del agente de Istio, Envoy y la aplicación | No |
+| 15021 | HTTP | Comprobaciones de estado (health checks) | No |
+| 15053 | DNS  | Puerto DNS, si la captura está habilitada | Sí |
+| 15090 | HTTP | Telemetría de Prometheus de Envoy | No |
 
-The following ports and protocols are used by the Istio control plane (istiod).
+El control plane de Istio (istiod) usa los siguientes puertos y protocolos.
 
-| Port | Protocol | Description | Local host only |
+| Puerto | Protocolo | Descripción | Solo host local |
 |----|----|----|----|
-| 443 | HTTPS | Webhooks service port | No |
-| 8080 | HTTP | Debug interface (deprecated, container port only) | No |
-| 15010 | GRPC | XDS and CA services (Plaintext, only for secure networks) | No |
-| 15012 | GRPC | XDS and CA services (TLS and mTLS, recommended for production use) | No |
-| 15014 | HTTP | Control plane monitoring | No |
-| 15017 | HTTPS | Webhook container port, forwarded from 443 | No |
+| 443 | HTTPS | Puerto del servicio de webhooks | No |
+| 8080 | HTTP | Interfaz de depuración (obsoleta, solo puerto del contenedor) | No |
+| 15010 | GRPC | Servicios XDS y de CA (texto plano, solo para redes seguras) | No |
+| 15012 | GRPC | Servicios XDS y de CA (TLS y mTLS, recomendado para uso en producción) | No |
+| 15014 | HTTP | Monitoreo del control plane | No |
+| 15017 | HTTPS | Puerto del contenedor del webhook, reenviado desde el 443 | No |
 
-## Server First Protocols
+## Protocolos en los que el servidor habla primero (server-first) {#server-first-protocols}
 
-Some protocols are "Server First" protocols, which means the server will send the first bytes. This may have an impact on
-[`PERMISSIVE`](/docs/reference/config/security/peer_authentication/#PeerAuthentication-MutualTLS-Mode) mTLS and [Automatic protocol selection](/docs/ops/configuration/traffic-management/protocol-selection/#automatic-protocol-selection).
+Algunos protocolos son protocolos "server-first", lo que significa que el servidor envía los primeros bytes. Esto puede afectar al
+mTLS [`PERMISSIVE`](/es/docs/reference/config/security/peer_authentication/#PeerAuthentication-MutualTLS-Mode) y a la [selección automática de protocolo](/es/docs/ops/configuration/traffic-management/protocol-selection/#automatic-protocol-selection).
 
-Both of these features work by inspecting the initial bytes of a connection to determine the protocol, which is incompatible with server first protocols.
+Ambas funcionalidades inspeccionan los bytes iniciales de una conexión para determinar el protocolo, lo cual es incompatible con los protocolos server-first.
 
-In order to support these cases, follow the [Explicit protocol selection](/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection) steps to declare the protocol of the application as `TCP`.
+Para soportar estos casos, sigue los pasos de [selección explícita de protocolo](/es/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection) para declarar el protocolo de la aplicación como `TCP`.
 
-The following ports are known to commonly carry server first protocols, and are automatically assumed to be `TCP`:
+Se sabe que los siguientes puertos suelen transportar protocolos server-first, y se asume automáticamente que son `TCP`:
 
-|Protocol|Port|
+|Protocolo|Puerto|
 |--------|----|
 | SMTP   |25  |
 | DNS    |53  |
 | MySQL  |3306|
 | MongoDB|27017|
 
-Because TLS communication is not server first, TLS encrypted server first traffic will work with automatic protocol detection as long as you make sure that all traffic subjected to TLS sniffing is encrypted:
+Como la comunicación TLS no es server-first, el tráfico server-first cifrado con TLS funcionará con la detección automática de protocolo siempre que te asegures de que todo el tráfico sujeto al sniffing de TLS esté cifrado:
 
-1. Configure `mTLS` mode `STRICT` for the server. This will enforce TLS encryption for all requests.
-1. Configure `mTLS` mode `DISABLE` for the server. This will disable the TLS sniffing, allowing server first protocols to be used.
-1. Configure all clients to send `TLS` traffic, generally through a [`DestinationRule`](/docs/reference/config/networking/destination-rule/#ClientTLSSettings) or by relying on auto mTLS.
-1. Configure your application to send TLS traffic directly.
+1. Configura el modo `mTLS` `STRICT` para el servidor. Esto aplicará el cifrado TLS a todas las solicitudes.
+1. Configura el modo `mTLS` `DISABLE` para el servidor. Esto deshabilitará el sniffing de TLS, lo que permite usar protocolos server-first.
+1. Configura todos los clientes para que envíen tráfico `TLS`, generalmente mediante una [`DestinationRule`](/es/docs/reference/config/networking/destination-rule/#ClientTLSSettings) o usando auto mTLS.
+1. Configura tu aplicación para que envíe tráfico TLS directamente.
 
-## Outbound traffic
+## Tráfico saliente
 
-In order to support Istio's traffic routing capabilities, traffic leaving a pod may be routed differently than
-when a sidecar is not deployed.
+Para soportar las capacidades de enrutamiento de tráfico de Istio, el tráfico que sale de un pod puede enrutarse de forma diferente
+a cuando no hay un sidecar desplegado.
 
-For HTTP-based traffic, traffic is routed based on the `Host` header. This may lead to unexpected behavior if the destination IP
-and `Host` header are not aligned. For example, a request like `curl 1.2.3.4 -H "Host: httpbin.default"` will be routed to the `httpbin` service,
-rather than `1.2.3.4`.
+Para el tráfico basado en HTTP, el tráfico se enruta según el encabezado `Host`. Esto puede provocar un comportamiento inesperado si la IP de destino
+y el encabezado `Host` no coinciden. Por ejemplo, una solicitud como `curl 1.2.3.4 -H "Host: httpbin.default"` se enrutará al servicio `httpbin`,
+en lugar de a `1.2.3.4`.
 
-For Non HTTP-based traffic (including HTTPS), Istio does not have access to an `Host` header, so routing decisions are based on the Service IP address.
+Para el tráfico no basado en HTTP (incluido HTTPS), Istio no tiene acceso a un encabezado `Host`, por lo que las decisiones de enrutamiento se basan en la dirección IP del Service.
 
-One implication of this is that direct calls to pods (for example, `curl <POD_IP>`), rather than Services, will not be matched. While the traffic may
-be [passed through](/docs/tasks/traffic-management/egress/egress-control/#envoy-passthrough-to-external-services), it will not get the full Istio functionality
-including mTLS encryption, traffic routing, and telemetry.
+Una implicación de esto es que las llamadas directas a pods (por ejemplo, `curl <POD_IP>`), en lugar de a Services, no coincidirán con ningún Service. Aunque el tráfico puede
+[dejarse pasar (passthrough)](/es/docs/tasks/traffic-management/egress/egress-control/#envoy-passthrough-to-external-services), no obtendrá toda la funcionalidad de Istio,
+incluido el cifrado mTLS, el enrutamiento de tráfico y la telemetría.
 
-See the [Traffic Routing](/docs/ops/configuration/traffic-management/traffic-routing) page for more information.
+Consulta la página de [Enrutamiento de tráfico](/es/docs/ops/configuration/traffic-management/traffic-routing) para más información.

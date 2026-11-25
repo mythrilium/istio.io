@@ -1,6 +1,6 @@
 ---
-title: Virtual Machine Architecture
-description: Describes Istio's high-level architecture for virtual machines.
+title: Arquitectura de máquinas virtuales
+description: Describe la arquitectura general de Istio para máquinas virtuales.
 weight: 25
 keywords:
 - virtual-machine
@@ -8,64 +8,64 @@ test: n/a
 owner: istio/wg-environments-maintainers
 ---
 
-Before reading this document, be sure to review [Istio's architecture](/docs/ops/deployment/architecture/) and [deployment models](/docs/ops/deployment/deployment-models/).
-This page builds on those documents to explain how Istio can be extended to support joining virtual machines into the mesh.
+Antes de leer este documento, asegúrate de revisar la [arquitectura de Istio](/es/docs/ops/deployment/architecture/) y los [modelos de despliegue](/es/docs/ops/deployment/deployment-models/).
+Esta página se basa en esos documentos para explicar cómo se puede extender Istio para incorporar máquinas virtuales a la mesh.
 
-Istio's virtual machine support allows connecting workloads outside of a Kubernetes cluster to the mesh.
-This enables legacy applications, or applications not suitable to run in a containerized environment, to get all the benefits that Istio provides to applications running inside Kubernetes.
+El soporte de Istio para máquinas virtuales permite conectar a la mesh workloads que se ejecutan fuera de un clúster de Kubernetes.
+Esto permite que las aplicaciones heredadas, o las aplicaciones que no son adecuadas para ejecutarse en un entorno de contenedores, obtengan todos los beneficios que Istio proporciona a las aplicaciones que se ejecutan dentro de Kubernetes.
 
-For workloads running on Kubernetes, the Kubernetes platform itself provides various features like service discovery, DNS resolution, and health checks which are often missing in virtual machine environments.
-Istio enables these features for workloads running on virtual machines, and in addition allows these workloads to utilize Istio functionality such as mutual TLS (mTLS), rich telemetry, and advanced traffic management capabilities.
+Para los workloads que se ejecutan en Kubernetes, la propia plataforma Kubernetes proporciona varias funcionalidades, como el descubrimiento de servicios, la resolución DNS y las comprobaciones de estado, que a menudo faltan en los entornos de máquinas virtuales.
+Istio habilita estas funcionalidades para los workloads que se ejecutan en máquinas virtuales y, además, permite que estos workloads utilicen funcionalidades de Istio como TLS mutuo (mTLS), telemetría detallada y capacidades avanzadas de gestión de tráfico.
 
-The following diagram shows the architecture of a mesh with virtual machines:
+El siguiente diagrama muestra la arquitectura de una mesh con máquinas virtuales:
 
 {{< tabset category-name="network-mode" >}}
 
 {{< tab name="Single-Network" category-value="single" >}}
 
-In this mesh, there is a single [network](/docs/ops/deployment/deployment-models/#network-models), where pods and virtual machines can communicate directly with each other.
+En esta mesh hay una única [red](/es/docs/ops/deployment/deployment-models/#network-models), en la que los pods y las máquinas virtuales pueden comunicarse directamente entre sí.
 
-Control plane traffic, including XDS configuration and certificate signing, are sent through a Gateway in the cluster.
-This ensures that the virtual machines have a stable address to connect to when they are bootstrapping. Pods and virtual machines can communicate directly with each other without requiring any intermediate Gateway.
+El tráfico del control plane, incluida la configuración XDS y la firma de certificados, se envía a través de un Gateway en el clúster.
+Esto garantiza que las máquinas virtuales tengan una dirección estable a la que conectarse durante su arranque (bootstrapping). Los pods y las máquinas virtuales pueden comunicarse directamente entre sí sin necesidad de ningún Gateway intermedio.
 
 {{< image width="75%"
     link="single-network.svg"
-    alt="A service mesh with a single network and virtual machines"
-    title="Single network"
-    caption="A service mesh with a single network and virtual machines"
+    alt="Una service mesh con una única red y máquinas virtuales"
+    title="Red única"
+    caption="Una service mesh con una única red y máquinas virtuales"
     >}}
 
 {{< /tab >}}
 
 {{< tab name="Multi-Network" category-value="multiple" >}}
 
-In this mesh, there are multiple [networks](/docs/ops/deployment/deployment-models/#network-models), where pods and virtual machines are not able to communicate directly with each other.
+En esta mesh hay varias [redes](/es/docs/ops/deployment/deployment-models/#network-models), en las que los pods y las máquinas virtuales no pueden comunicarse directamente entre sí.
 
-Control plane traffic, including XDS configuration and certificate signing, are sent through a Gateway in the cluster.
-Similarly, all communication between pods and virtual machines goes through the gateway, which acts as a bridge between the two networks.
+El tráfico del control plane, incluida la configuración XDS y la firma de certificados, se envía a través de un Gateway en el clúster.
+Del mismo modo, toda la comunicación entre pods y máquinas virtuales pasa por el gateway, que actúa como puente entre las dos redes.
 
 {{< image width="75%"
     link="multi-network.svg"
-    alt="A service mesh with multiple networks and virtual machines"
-    title="Multiple networks"
-    caption="A service mesh with multiple networks and virtual machines"
+    alt="Una service mesh con varias redes y máquinas virtuales"
+    title="Varias redes"
+    caption="Una service mesh con varias redes y máquinas virtuales"
     >}}
 
 {{< /tab >}}
 
 {{< /tabset >}}
 
-## Service association
+## Asociación de servicios
 
-Istio provides two mechanisms to represent virtual machine workloads:
+Istio proporciona dos mecanismos para representar los workloads de máquinas virtuales:
 
-* [`WorkloadGroup`](/docs/reference/config/networking/workload-group/) represents a logical group of virtual machine workloads that share common properties. This is similar to a `Deployment` in Kubernetes.
-* [`WorkloadEntry`](/docs/reference/config/networking/workload-entry/) represents a single instance of a virtual machine workload. This is similar to a `Pod` in Kubernetes.
+* [`WorkloadGroup`](/es/docs/reference/config/networking/workload-group/) representa un grupo lógico de workloads de máquinas virtuales que comparten propiedades comunes. Es similar a un `Deployment` en Kubernetes.
+* [`WorkloadEntry`](/es/docs/reference/config/networking/workload-entry/) representa una única instancia de un workload de máquina virtual. Es similar a un `Pod` en Kubernetes.
 
-Creating these resources (`WorkloadGroup` and `WorkloadEntry`) does not result in provisioning of any resources or running any virtual machine workloads.
-Rather, these resources just reference these workloads and inform Istio how to configure the mesh appropriately.
+Crear estos recursos (`WorkloadGroup` y `WorkloadEntry`) no aprovisiona ningún recurso ni ejecuta ningún workload de máquina virtual.
+En cambio, estos recursos simplemente hacen referencia a esos workloads e indican a Istio cómo configurar la mesh adecuadamente.
 
-When adding a virtual machine workload to the mesh, you will need to create a `WorkloadGroup` that acts as template for each `WorkloadEntry` instance:
+Al añadir un workload de máquina virtual a la mesh, necesitarás crear un `WorkloadGroup` que actúe como plantilla para cada instancia de `WorkloadEntry`:
 
 {{< text yaml >}}
 apiVersion: networking.istio.io/v1
@@ -83,8 +83,8 @@ spec:
       port: 8080
 {{< /text >}}
 
-Once a virtual machine has been [configured and added to the mesh](/docs/setup/install/virtual-machine/#configure-the-virtual-machine), a corresponding `WorkloadEntry` will be automatically created by the Istio control plane.
-For example:
+Una vez que una máquina virtual se ha [configurado y añadido a la mesh](/es/docs/setup/install/virtual-machine/#configure-the-virtual-machine), el control plane de Istio creará automáticamente el `WorkloadEntry` correspondiente.
+Por ejemplo:
 
 {{< text yaml >}}
 apiVersion: networking.istio.io/v1
@@ -102,27 +102,27 @@ spec:
   serviceAccount: default
 {{< /text >}}
 
-This `WorkloadEntry` resource describes a single instance of a workload, similar to a pod in Kubernetes. When the workload is removed from the mesh, the `WorkloadEntry` resource will
-be automatically removed.  Additionally, if any probes are configured in the `WorkloadGroup` resource, the Istio control plane automatically updates the health status of associated `WorkloadEntry` instances.
+Este recurso `WorkloadEntry` describe una única instancia de un workload, similar a un pod en Kubernetes. Cuando el workload se elimina de la mesh, el recurso `WorkloadEntry`
+se elimina automáticamente.  Además, si hay sondas (probes) configuradas en el recurso `WorkloadGroup`, el control plane de Istio actualiza automáticamente el estado de salud de las instancias de `WorkloadEntry` asociadas.
 
-In order for consumers to reliably call your workload, it's recommended to declare a `Service` association. This allows clients to reach a stable hostname, like `product.default.svc.cluster.local`, rather than an ephemeral IP addresses. This also enables you to use advanced routing capabilities in Istio via the `DestinationRule` and `VirtualService` APIs.
+Para que los consumidores puedan llamar a tu workload de forma fiable, se recomienda declarar una asociación con un `Service`. Esto permite a los clientes acceder a un nombre de host estable, como `product.default.svc.cluster.local`, en lugar de a una dirección IP efímera. Esto también te permite usar las capacidades avanzadas de enrutamiento de Istio mediante las APIs `DestinationRule` y `VirtualService`.
 
-Any Kubernetes service can transparently select workloads across both pods and virtual machines via the selector fields which are matched with pod and `WorkloadEntry` labels respectively.
+Cualquier servicio de Kubernetes puede seleccionar de forma transparente workloads tanto de pods como de máquinas virtuales mediante los campos selector, que se comparan con las etiquetas de los pods y de los `WorkloadEntry`, respectivamente.
 
-For example, a `Service` named `product` is composed of a `Pod` and a `WorkloadEntry`:
+Por ejemplo, un `Service` llamado `product` está compuesto por un `Pod` y un `WorkloadEntry`:
 
 {{< image width="30%"
     link="service-selector.svg"
-    title="Service Selection"
+    title="Selección de servicios"
     >}}
 
-With this configuration, requests to `product` would be load-balanced across both the pod and virtual machine workload instances.
+Con esta configuración, las solicitudes a `product` se balancearían entre las instancias de workload del pod y de la máquina virtual.
 
 ## DNS
 
-Kubernetes provides DNS resolution in pods for `Service` names allowing pods to easily communicate with one another by stable hostnames.
+Kubernetes proporciona resolución DNS en los pods para los nombres de `Service`, lo que permite que los pods se comuniquen fácilmente entre sí mediante nombres de host estables.
 
-For virtual machine expansion, Istio provides similar functionality via a [DNS Proxy](/docs/ops/configuration/traffic-management/dns-proxy/).
-This feature redirects all DNS queries from the virtual machine workload to the Istio proxy, which maintains a mapping of hostnames to IP addresses.
+Para la expansión a máquinas virtuales, Istio proporciona una funcionalidad similar mediante un [proxy DNS](/es/docs/ops/configuration/traffic-management/dns-proxy/).
+Esta funcionalidad redirige todas las consultas DNS del workload de la máquina virtual al proxy de Istio, que mantiene una correspondencia entre nombres de host y direcciones IP.
 
-As a result, workloads running on virtual machines can transparently call `Service`s (similar to pods) without requiring any additional configuration.
+Como resultado, los workloads que se ejecutan en máquinas virtuales pueden llamar de forma transparente a los `Service`s (de forma similar a los pods) sin necesidad de configuración adicional.

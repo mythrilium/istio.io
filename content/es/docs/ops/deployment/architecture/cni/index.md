@@ -1,17 +1,17 @@
 ---
-title: CNI plugin
-description: Describes how Istio's CNI plugin works.
+title: Plugin CNI
+description: Describe cómo funciona el plugin CNI de Istio.
 weight: 10
 owner: istio/wg-networking-maintainers
 test: n/a
 ---
 
-Kubernetes has a unique and permissive networking model. In order to configure L2-L4 networking between Pods, [a Kubernetes cluster requires an _interface_ Container Network Interface (CNI) plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/). This plugin runs whenever a new pod is created, and sets up the network environment for that pod.
+Kubernetes tiene un modelo de red único y permisivo. Para configurar la red L2-L4 entre Pods, [un clúster de Kubernetes requiere un plugin CNI (Container Network Interface) de _interfaz_](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/). Este plugin se ejecuta cada vez que se crea un nuevo pod y configura el entorno de red de ese pod.
 
-If you are using a hosted Kubernetes provider, you usually have limited choice in what CNI plugin you get in your cluster: it is an implementation detail of the hosted implementation.
+Si usas un proveedor de Kubernetes gestionado, normalmente tienes pocas opciones sobre qué plugin CNI se usa en tu clúster: es un detalle de implementación del servicio gestionado.
 
-In order to configure mesh traffic redirection, regardless of what CNI you or your provider choose to use for L2-L4 networking, Istio includes a _chained_ CNI plugin, which runs after all configured CNI interface plugins. The API for defining chained and interface plugins, and for sharing data between them, is part of the [CNI specification](https://www.cni.dev/). Istio works with all CNI implementations that follow the CNI standard, in both sidecar and ambient mode.
+Para configurar la redirección del tráfico de la mesh, independientemente del CNI que tú o tu proveedor elijan usar para la red L2-L4, Istio incluye un plugin CNI _encadenado_ (chained), que se ejecuta después de todos los plugins CNI de interfaz configurados. La API para definir plugins encadenados y de interfaz, y para compartir datos entre ellos, forma parte de la [especificación CNI](https://www.cni.dev/). Istio funciona con todas las implementaciones de CNI que siguen el estándar CNI, tanto en modo sidecar como en modo ambient.
 
-The Istio CNI plugin is optional in sidecar mode, and required in {{<gloss>}}ambient{{< /gloss >}} mode.
+El plugin CNI de Istio es opcional en modo sidecar y obligatorio en modo {{<gloss>}}ambient{{< /gloss >}}.
 
-* [Learn how to install Istio with a CNI plugin](/docs/setup/additional-setup/cni/)
+* [Aprende a instalar Istio con un plugin CNI](/es/docs/setup/additional-setup/cni/)

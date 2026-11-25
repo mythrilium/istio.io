@@ -1,6 +1,6 @@
 ---
-title: Deployment
-description: Requirements, concepts, and considerations for setting up an Istio deployment.
+title: Despliegue
+description: Requisitos, conceptos y consideraciones para configurar un despliegue de Istio.
 weight: 10
 keywords:
 - deployment-models
